@@ -1,15 +1,13 @@
 ---
-import { Image } from 'astro:assets';
-import { getCollection } from 'astro:content';
 import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
 import Header from '../../components/Header.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../../consts';
-
-const posts = (await getCollection('blog')).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
-);
+// Fetch WordPress posts from REST API
+const endpoint = "http://localhost:8000/?rest_route=/wp/v2/posts";
+const response = await fetch(endpoint);
+const posts = response.ok ? await response.json() : [];
 ---
 
 <!doctype html>
@@ -92,19 +90,23 @@ const posts = (await getCollection('blog')).sort(
 			<section>
 				<ul>
 					{
-						posts.map((post) => (
-							<li>
-								<a href={`/blog/${post.id}/`}>
-									{post.data.heroImage && (
-										<Image width={720} height={360} src={post.data.heroImage} alt="" />
-									)}
-									<h4 class="title">{post.data.title}</h4>
-									<p class="date">
-										<FormattedDate date={post.data.pubDate} />
-									</p>
-								</a>
-							</li>
-						))
+						posts.map((post) => {
+							const featured = post._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+							
+							return (
+								<li>
+									<a href={post.link}>
+										{featured && (
+											<img width={720} height={360} src={featured} alt="" />
+										)}
+										<h4 class="title" set:html={post.title?.rendered}></h4>
+										<p class="date">
+											<FormattedDate date={new Date(post.date)} />
+										</p>
+									</a>
+								</li>
+							);
+						})
 					}
 				</ul>
 			</section>
