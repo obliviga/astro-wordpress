@@ -1,20 +1,28 @@
 ---
-import { type CollectionEntry, getCollection, render } from 'astro:content';
 import BlogPost from '../../layouts/BlogPost.astro';
 
 export async function getStaticPaths() {
-	const posts = await getCollection('blog');
+	const apiBase = import.meta.env.PUBLIC_WP_API_URL;
+	const res = await fetch(`${apiBase}/posts`);
+	const posts = res.ok ? await res.json() : [];
+
 	return posts.map((post) => ({
-		params: { slug: post.id },
-		props: post,
+		params: { slug: post.slug },
+		props: {
+			title: post.title?.rendered,
+			description: post.excerpt?.rendered,
+			pubDate: new Date(post.date),
+			updatedDate: post.modified ? new Date(post.modified) : undefined,
+			content: post.content?.rendered,
+			featured: post._embedded?.['wp:featuredmedia']?.[0]?.source_url,
+		},
 	}));
 }
-type Props = CollectionEntry<'blog'>;
 
 const post = Astro.props;
-const { Content } = await render(post);
+
 ---
 
-<BlogPost {...post.data}>
-	<Content />
+<BlogPost title={post.title} description={post.description} pubDate={post.pubDate} updatedDate={post.updatedDate}>
+	<section set:html={post.content} />
 </BlogPost>
