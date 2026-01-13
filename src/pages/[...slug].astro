@@ -1,0 +1,85 @@
+---
+const API_BASE = 'http://localhost:8000/?rest_route=/wp/v2/pages'
+
+/**
+ * Build a map of pageId -> page
+ */
+async function fetchPages() {
+  const res = await fetch(`${API_BASE}&per_page=100`)
+  if (!res.ok) return []
+
+  return await res.json()
+}
+
+/**
+ * Reconstruct the full path for a page using parent IDs
+ */
+function buildFullPath(page, pageMap) {
+  const segments = [page.slug]
+  let current = page
+
+  while (current.parent && pageMap.has(current.parent)) {
+    current = pageMap.get(current.parent)
+    segments.unshift(current.slug)
+  }
+
+  return segments.join('/')
+}
+
+export async function getStaticPaths() {
+  const pages = await fetchPages()
+
+  const pageMap = new Map(pages.map((p) => [p.id, p]))
+
+  return pages.map((page) => ({
+    params: {
+      slug: buildFullPath(page, pageMap).split('/'),
+    },
+  }))
+}
+
+/**
+ * Runtime resolution
+ */
+const slugParam = Astro.params.slug
+const slugSegments = Array.isArray(slugParam)
+  ? slugParam
+  : [slugParam]
+const requestedPath = slugSegments.join('/')
+const pages = await fetchPages()
+const pageMap = new Map(pages.map((p) => [p.id, p]))
+
+let page = null
+
+for (const p of pages) {
+  const fullPath = buildFullPath(p, pageMap)
+  if (fullPath === requestedPath) {
+    page = p
+    break
+  }
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{page ? page.title.rendered : 'Page not found'}</title>
+  </head>
+
+  <body>
+    <main>
+      {page ? (
+        <>
+          <h1>{page.title.rendered}</h1>
+          <div set:html={page.content.rendered} />
+        </>
+      ) : (
+        <>
+          <h1>Page not found</h1>
+          <p>This page does not exist in WordPress.</p>
+        </>
+      )}
+    </main>
+  </body>
+</html>

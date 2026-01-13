@@ -6,8 +6,18 @@ import Header from '../../components/Header.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../../consts';
 
 const apiBase = import.meta.env.PUBLIC_WP_API_URL;
-const endpoint = "/posts";
-const response = await fetch(apiBase + endpoint);
+
+function buildWpUrl(base, resource, params) {
+	const qs = new URLSearchParams(params);
+	if (base.includes('?rest_route=')) {
+		const sep = qs.toString() ? '&' : '';
+		return `${base}/${resource}${sep}${qs.toString()}`;
+	}
+	const sep = qs.toString() ? '?' : '';
+	return `${base}/${resource}${sep}${qs.toString()}`;
+}
+
+const response = await fetch(buildWpUrl(apiBase, 'posts', { _embed: '1', per_page: '20' }));
 const posts = response.ok ? await response.json() : [];
 ---
 
